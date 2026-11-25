@@ -1,0 +1,37 @@
+stages:
+  - test
+
+db_migrations_and_tests:
+  stage: test
+  image:
+    name: flyway/flyway:10-alpine
+    entrypoint: [""]
+    docker:
+      user: root
+  services:
+    - name: postgres:16-alpine
+      alias: postgres
+  variables:
+    POSTGRES_DB: postgres
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: $CI_PG_ADMIN_PASSWORD
+    PGHOST: postgres
+    PGPORT: "5432"
+    PGADMIN_USER: postgres
+    PGADMIN_PASSWORD: $CI_PG_ADMIN_PASSWORD
+    PGUSER: umms_user
+    PGPASSWORD: $CI_PG_USER_PASSWORD
+  before_script:
+    - apk add --no-cache bash postgresql16-client
+    - |
+      PGPASSWORD="$PGADMIN_PASSWORD" psql -w -h "$PGHOST" -p "$PGPORT" -U "$PGADMIN_USER" -d postgres -v ON_ERROR_STOP=1 -v app_user="$PGUSER" -v app_pass="$PGPASSWORD" <<'SQL'
+      CREATE ROLE :"app_user" WITH LOGIN PASSWORD :'app_pass';
+      SQL
+  script:
+    - chmod +x scripts/run_tests_ci.sh
+    - ./scripts/run_tests_ci.sh
+  artifacts:
+    when: always
+    paths:
+      - logs/*.log
+    expire_in: 14 days
